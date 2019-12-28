@@ -132,42 +132,6 @@ def get_parameters():
 
 
 
-################## Exchange rules #################
-
-def exchange(N, A, ground_truth, users, openness):
-    listener, speaker = random.sample(list(users.keys()), 2)
-       
-    new_user_beliefs = users.copy()
-
-    position = random.choice(range(N))
-    bit_val = random.choice(range(A))
-
-    speaker_values = users[speaker]['influence_patterns'][position][bit_val]
-    listener_values = users[listener]['influence_patterns'][position][bit_val]
-
-    speaker_vector = np.array([val for k, val in speaker_values.items()])
-    listener_vector = np.array([val for k, val in listener_values.items()])
-
-    #update if similiar
-    cos_sim = np.dot(listener_vector.T, speaker_vector)/(LA.norm(listener_vector.T)*LA.norm(speaker_vector))
-
-    if cos_sim > openness: #similiarity will range from -1 to 1, don't update if exactly the same
-        new_beliefs = listener_vector + ( (speaker_vector - listener_vector) / 2 )
-    else:
-        new_beliefs = listener_vector #no change
-    
-    #update influence patterns
-    for i, key in enumerate(listener_values.keys()):
-        new_user_beliefs[listener]['influence_patterns'][position][bit_val][key] = new_beliefs[i]
-    
-    #update node values
-    node_values = NKmodel.get_node_values(ground_truth['nodes'], new_user_beliefs[listener]['influence_dict'], 
-                                  new_user_beliefs[listener]['influence_patterns'])
-    
-    new_user_beliefs[listener]['node_values'] = node_values
-    
-    return new_user_beliefs, cos_sim
-
 ################# Boundary conditions ################
 
 def get_bounds(n_users, n_intel, agent_type, i):
@@ -245,7 +209,7 @@ def main():
 
 	    bounds = get_bounds(n_users, n_intel, agent_type, i)
 	    
-	    multi_run_output = NKmodel.multi_run(N, k, A, n_users, runs, bounds, max_iter, exchange, openness)
+	    multi_run_output = NKmodel.multi_run(N, k, A, n_users, runs, bounds, max_iter, openness)
 	    
 	    # save data
 	    filename = 'noise_%s.json.gzip' %i

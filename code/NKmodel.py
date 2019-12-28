@@ -233,8 +233,44 @@ def init_users(n_users, N, k, A, ground_truth, bounds):
         
     return users
 
+################## Exchange rules #################
 
-def iterate_exchange(N, A, ground_truth, users, max_iter, exchange, openness):
+def exchange(N, A, ground_truth, users, openness):
+    listener, speaker = random.sample(list(users.keys()), 2)
+       
+    new_user_beliefs = users.copy()
+
+    position = random.choice(range(N))
+    bit_val = random.choice(range(A))
+
+    speaker_values = users[speaker]['influence_patterns'][position][bit_val]
+    listener_values = users[listener]['influence_patterns'][position][bit_val]
+
+    speaker_vector = np.array([val for k, val in speaker_values.items()])
+    listener_vector = np.array([val for k, val in listener_values.items()])
+
+    #update if similiar
+    cos_sim = np.dot(listener_vector.T, speaker_vector)/(LA.norm(listener_vector.T)*LA.norm(speaker_vector))
+
+    if cos_sim > openness: #similiarity will range from -1 to 1, don't update if exactly the same
+        new_beliefs = listener_vector + ( (speaker_vector - listener_vector) / 2 )
+    else:
+        new_beliefs = listener_vector #no change
+    
+    #update influence patterns
+    for i, key in enumerate(listener_values.keys()):
+        new_user_beliefs[listener]['influence_patterns'][position][bit_val][key] = new_beliefs[i]
+    
+    #update node values
+    node_values = get_node_values(ground_truth['nodes'], new_user_beliefs[listener]['influence_dict'], 
+                                  new_user_beliefs[listener]['influence_patterns'])
+    
+    new_user_beliefs[listener]['node_values'] = node_values
+    
+    return new_user_beliefs, cos_sim
+
+
+def iterate_exchange(N, A, ground_truth, users, max_iter, openness):
     outcome = dict()
 
     good_vote_percent = 0.
@@ -263,7 +299,7 @@ def iterate_exchange(N, A, ground_truth, users, max_iter, exchange, openness):
 
 
 
-def multi_run(N, k, A, n_users, runs, bounds, max_iter, exchange, openness):
+def multi_run(N, k, A, n_users, runs, bounds, max_iter, openness):
     
     ground_truth = init_truth(N, k, A) # Create ground truth ## DO THIS ONCE
     
@@ -278,7 +314,7 @@ def multi_run(N, k, A, n_users, runs, bounds, max_iter, exchange, openness):
 
         users = init_users(n_users, N, k, A, ground_truth, bounds) #re-init each run
         
-        outcome = iterate_exchange(N, A, ground_truth, users, max_iter, exchange, openness) #outcome of this run
+        outcome = iterate_exchange(N, A, ground_truth, users, max_iter, openness) #outcome of this run
         
         multi_run_output.setdefault(run, dict())
         
